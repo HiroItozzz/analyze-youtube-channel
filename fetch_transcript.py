@@ -1,98 +1,114 @@
 import os
-from dotenv import load_dotenv
+import re
+from pathlib import Path
 from yt_dlp import YoutubeDL
 
-### Settings ###
-load_dotenv()
-SUBTITLE_LANGS = os.getenv("SUBTITLE_LANGS")  # Default to Japanese subtitles
+# --- 設定 ---
+# 抽出したい字幕の言語コード（複数指定可能）
+SUBTITLE_LANGS = os.getenv("SUBTITLE_LANGS", "ja").split(",")  # 例: ["ja", "en"]
+# 字幕ファイルを一時保存するディレクトリ
+TMP_SUB_DIR = Path("tmp_subs")
+
+# --- ヘルパー関数 ---
 
 
-def parse_json3_subtitles(json_data: list) -> str:
+def subtitle_file_to_text(path: Path) -> str:
     """
-    Parse YouTube JSON3 subtitle format and extract text content
+    SRT/VTTファイルから、タイムスタンプや番号を削除し、純粋なテキストを抽出する
     """
-    if not json_data:
+    if not path.exists():
         return ""
+    lines_out = []
+    with path.open("r", encoding="utf-8", errors="ignore") as f:
+        for line in f:
+            line = line.strip()
 
-    text_parts = []
-    for event in json_data:
-        if "segs" in event:
-            for seg in event["segs"]:
-                if "utf8" in seg:
-                    text_parts.append(seg["utf8"])
+            # SRT/VTTの不要な行をスキップ (番号, タイムスタンプ, ヘッダ)
+            if (
+                not line
+                or re.fullmatch(r"\d+", line)
+                or re.match(r"^\d{2}:\d{2}:\d{2}[,.]\d{3} --> ", line)
+                or line.startswith("WEBVTT")
+                or line.startswith("NOTE")
+            ):
+                continue
 
-    return " ".join(text_parts).replace("\n", " ").strip()
+            lines_out.append(line)
+
+    # 全てのテキストをスペースで繋げる
+    return " ".join(lines_out)
 
 
-def extract_from_subtitle_list(subtitle_list: list) -> list:
+def find_downloaded_subfile(video_id: str) -> Path | None:
     """
-    Extract text from list of subtitle format objects
+    一時ディレクトリから、指定言語の字幕ファイルを探す
     """
-    texts = []
-    for sub_format in subtitle_list:
-        if sub_format["ext"] == "json3" and "data" in sub_format:
-            text = parse_json3_subtitles(sub_format["data"])
-            if text:
-                texts.append(text)
-    return texts
-
-
-def extract_subtitles_from_info(info_dict: dict) -> str:
-    """
-    Extract subtitle text from yt-dlp info dictionary
-    Prioritizes manual subtitles over auto-generated ones
-    """
-    subtitle_texts = []
-
-    # Check for manual subtitles first
     for lang in SUBTITLE_LANGS:
-        # Manual subtitles
-        if lang in info_dict.get("subtitles", {}):
-            subtitle_texts.extend(
-                extract_from_subtitle_list(info_dict["subtitles"][lang])
-            )
-            break
-
-        # Auto-generated subtitles (only if no manual subtitles found)
-        elif lang in info_dict.get("automatic_captions", {}) and not subtitle_texts:
-            subtitle_texts.extend(
-                extract_from_subtitle_list(info_dict["automatic_captions"][lang])
-            )
-            break
-
-    return " ".join(subtitle_texts) if subtitle_texts else ""
+        for ext in ("srt", "vtt"):
+            p = TMP_SUB_DIR / f"{video_id}.{lang}.{ext}"
+            if p.exists():
+                return p
+    return None
 
 
-def download_subtitles(video_url: str, video_id: str) -> str:
+def extract_subtitles_from_video(video_url: str) -> str:
     """
-    Download subtitles from YouTube video using in-memory processing
+    yt-dlpを使用して字幕をファイルにダウンロードし、抽出する
     """
+
+    # URLからvideo_idを抽出 (ファイル名作成用)
+    video_id = YoutubeDL({}).extract_info(video_url, download=False)["id"]
+
+    # 既存のキャッシュディレクトリ作成
+    TMP_SUB_DIR.mkdir(exist_ok=True, parents=True)
+
+    # yt-dlp オプション: ダウンロードはスキップし、字幕のみを取得
     ydl_opts = {
-        "skip_download": True,  # Don't download video content
-        "writesubtitles": True,  # Download subtitles
-        "writeautomaticsub": True,  # Include auto-generated subtitles
-        "subtitleslangs": SUBTITLE_LANGS,  # Preferred languages
-        "subtitlesformat": "json3",  # Keep in memory as JSON format
-        "quiet": True,  # Suppress output
-        "no_warnings": True,  # Hide warnings
+        "skip_download": True,
+        "writesubtitles": True,
+        "writeautomaticsub": True,
+        "subtitleslangs": SUBTITLE_LANGS,
+        "subtitlesformat": "srt/vtt",  # SRT/VTT形式で保存（json3は使用しない）
+        # ダウンロード先のファイル名のテンプレート
+        "outtmpl": str(TMP_SUB_DIR / "%(id)s.%(ext)s"),
+        "quiet": True,
+        "no_warnings": True,
+        "ignoreerrors": True,
     }
 
     try:
         with YoutubeDL(ydl_opts) as ydl:
-            # Extract metadata only (no file saving)
-            info = ydl.extract_info(video_url, download=False)
-            # Get subtitle data directly from memory
-            return extract_subtitles_from_info(info)
+            # ★ 確実に動作させるため、字幕ファイルをディスクにダウンロードする
+            ydl.download([video_url])
+
+        # ダウンロードされたファイルからテキストを抽出
+        sub_path = find_downloaded_subfile(video_id)
+
+        if sub_path:
+            text = subtitle_file_to_text(sub_path)
+            # 抽出に使ったファイルを削除 (オプション)
+            # sub_path.unlink()
+            return text
+
+        return ""  # 字幕ファイルが見つからなかった場合
 
     except Exception as e:
-        print(f"Subtitle download failed: {e}")
+        print(f"字幕の抽出に失敗しました: {e}")
         return ""
 
 
-if __name__ == "__main__":  # Example usage
-    test_video_id = "3jiUMCoLgzI"
-    test_video_url = f"https://www.youtube.com/watch?v={test_video_id}"
-    subtitles = download_subtitles(test_video_url, test_video_id)
-    print(
-        f"Extracted Subtitles for {test_video_id}:\n{subtitles[:500]}..."
-    )  # Print first 500 chars
+# --- 実行例 ---
+if __name__ == "__main__":
+    # テスト動画ID (字幕が存在する動画に差し替えてください)
+    test_video_url = "https://www.youtube.com/watch?v=3jiUMCoLgzI"
+
+    # 実行
+    subtitles = extract_subtitles_from_video(test_video_url)
+
+    print("-" * 30)
+    print(f"URL: {test_video_url}")
+    if subtitles:
+        print(f"抽出された字幕 (最初の300文字):\n{subtitles[:300]}...")
+    else:
+        print("字幕は見つかりませんでした。")
+    print("-" * 30)
