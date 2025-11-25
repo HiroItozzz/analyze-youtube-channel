@@ -104,7 +104,7 @@ def extract_subtitles_from_videos(video_ids: list[str]) -> pd.DataFrame:
             print(f"{video_id}の字幕の抽出に失敗しました: {e}")
 
         # YouTube APIのレート制限を回避するため待機
-        time.sleep(random.uniform(0.8, 1.5))
+        time.sleep(random.uniform(0.5, 1.5))
 
     df = pd.DataFrame(data)
     return df
@@ -124,7 +124,7 @@ def delete_temp_directory(temp_dir: Path):
 
 if __name__ == "__main__":
     # テスト動画ID (字幕が存在する動画に差し替えてください)
-    test_video_ids = ["3jiUMCoLgzI", "tnDeaea4cGk"]
+    test_video_ids = ["tnDeaea4cGk"]
     try:
         # execute
         df = extract_subtitles_from_videos(test_video_ids)

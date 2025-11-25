@@ -19,35 +19,16 @@ OUTPUT_DIR = Path("output")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 
-def convert_duration_to_seconds(duration_iso: str) -> int:
-    """ISO 8601 形式の duration を秒に変換
-    例: "PT15M33S" -> 933
-    """
-    try:
-        return int(isodate.parse_duration(duration_iso).total_seconds())
-    except Exception:
-        return 0
-
-
 def analyze_keywords(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    キーワード分析を実行して DataFrame を返す（保存なし）
+    """キーワード分析を実行し、DataFrame をReturn"""
 
-    get_youtube_data.ipynb のロジックを踏襲
-    """
-
-    # 1. duration を秒からそのまま使用（既に get_video_details で秒単位のはず）
-    # もしISO 8601形式なら変換
-    if df["duration"].dtype == "object":
-        df["duration"] = df["duration"].apply(convert_duration_to_seconds)
-
-    # 2. 全カテゴリで分析（トランスクリプトとタイトル）
+    # 1. 全カテゴリで分析
     for category in KEYWORD_CATEGORIES.keys():
         print(f"  分析中: {category}")
         analyze_by_keywords(df, category=category, threshold=0.5)
         add_title_keyword_flags(df, category=category)
 
-    # 3. 主要カテゴリを決定（最も出現回数が多いカテゴリ）
+    # 2. 主要カテゴリを決定（最も出現回数が多いカテゴリ）
     def get_primary_category(row):
         """各行で最も該当度が高いカテゴリを返す"""
         scores = {}
@@ -68,10 +49,6 @@ def analyze_keywords(df: pd.DataFrame) -> pd.DataFrame:
 def save_to_csv(df: pd.DataFrame, output_path: Path):
     """
     分析結果を CSV に保存
-
-    Args:
-        df: 分析済み DataFrame
-        output_path: 出力ファイルパス
     """
     df.to_csv(output_path, index=False, encoding="utf-8-sig")
     print(f"✓ 分析結果を保存: {output_path}")
@@ -80,8 +57,6 @@ def save_to_csv(df: pd.DataFrame, output_path: Path):
 def analyze_and_save(df: pd.DataFrame, output_path: Path):
     """
     キーワード分析を実行してCSVに出力
-
-    get_youtube_data.ipynb のロジックを踏襲
     """
 
     # 1. duration を秒からそのまま使用（既に get_video_details で秒単位のはず）

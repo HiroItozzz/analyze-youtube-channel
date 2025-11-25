@@ -1,11 +1,17 @@
 # fmt: off
 
 """
-キーワード集: 世界仰天ニュース分類用
+Keyword collection:
+for 'Sekai Gyoten News'(Japanese TV program on "https://www.youtube.com/@nittele") classification
+キーワード集: 日テレチャンネル世界仰天ニュース分類用
 
+A keyword dictionary for classifying medical, legal, and everyday unexpected events.
 医療、法律、日常の意外な出来事を分類するためのキーワード辞書
 """
-
+# ============================================
+# Medical related keywords
+# 医療関連キーワード
+# ============================================
 medical_keywords = [
     "病気","医療","治療","難病","がん","ガン","癌","感染症","手術","症状","薬","病院",
     "発熱","咳","喘息","糖尿病","高血圧","心臓","脳卒中","認知症",
@@ -17,6 +23,7 @@ medical_keywords = [
 ]
 
 # ============================================
+# Law/crime related keywords
 # 法律・犯罪関連キーワード
 # ============================================
 legal_keywords = {
@@ -38,6 +45,7 @@ legal_keywords = {
 }
 
 # ============================================
+# Unexpected everyday events (wonder, mystery, miracle)
 # 日常の意外な出来事（不思議・ミステリー・奇跡）
 # ============================================
 daily_surprising_keywords = {
@@ -64,6 +72,7 @@ daily_surprising_keywords = {
 }
 
 # fmt: on
+
 
 # ============================================
 # キーワード辞書をまとめたもの
