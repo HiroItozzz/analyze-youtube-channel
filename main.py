@@ -5,9 +5,9 @@ import pandas as pd
 import isodate
 
 import analyzer, fetch_transcripts
-from keywords import analyze_by_keywords, KEYWORD_CATEGORIES
+from keywords import analyze_by_keywords, add_title_keyword_flags, KEYWORD_CATEGORIES
 
-VIDEO_IDS = ["RiYW3KtT2CA"]
+VIDEO_IDS = ["CuNik7M56UM"]
 
 load_dotenv()
 API_KEY = os.environ["YOUTUBE_API_KEY"]
@@ -41,10 +41,11 @@ def analyze_keywords(df: pd.DataFrame) -> pd.DataFrame:
     if df["duration"].dtype == "object":
         df["duration"] = df["duration"].apply(convert_duration_to_seconds)
 
-    # 2. 全カテゴリで分析
+    # 2. 全カテゴリで分析（トランスクリプトとタイトル）
     for category in KEYWORD_CATEGORIES.keys():
         print(f"  分析中: {category}")
         analyze_by_keywords(df, category=category, threshold=0.5)
+        add_title_keyword_flags(df, category=category)
 
     # 3. 主要カテゴリを決定（最も出現回数が多いカテゴリ）
     def get_primary_category(row):
@@ -145,11 +146,17 @@ if __name__ == "__main__":
 
     # Step 4: 字幕取得
     print("[4] 字幕ダウンロード中...")
-    df_subtitles = fetch_transcripts.extract_subtitles_from_video(all_video_ids)
+    df_subtitles = fetch_transcripts.extract_subtitles_from_videos(all_video_ids)
 
     # Step 5: データ統合
     print("[5] データ統合中...")
     result = pd.merge(df_video_details, df_subtitles, on="video_id", how="outer")
+    if DEBUG:
+        result.to_csv(
+            OUTPUT_DIR / "debug_merged_data.csv",
+            index=False,
+            encoding="utf-8-sig",
+        )
 
     print(f"  統合行数: {len(result)}")
 

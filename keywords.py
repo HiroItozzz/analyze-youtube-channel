@@ -110,18 +110,18 @@ def classify_text(text: str) -> dict:
 def analyze_by_keywords(df, category: str, threshold: float = 0.5) -> None:
     """
     DataFrame に時間を考慮したキーワード分析列を追加（インプレイス）
-    
+
     get_youtube_data.ipynb のロジックを踏襲：
     1. 各動画のキーワード出現回数をカウント
     2. 動画時間（秒）を分に変換
     3. 1分あたりのキーワード出現回数を計算
     4. threshold 以上なら is_{category} = True
-    
+
     Args:
-        df: video_id, transcript, duration(秒) を含む DataFrame（インプレイス修正）
+        df: video_id, subtitles, duration(秒) を含む DataFrame（インプレイス修正）
         category: 分析カテゴリ ("medical", "legal", "daily_surprising")
         threshold: 関連性判定の閾値（デフォルト 0.5回/分）
-    
+
     Example:
         >>> analyze_by_keywords(df, "medical", threshold=0.5)
         >>> # df に以下の列が追加される:
@@ -131,22 +131,24 @@ def analyze_by_keywords(df, category: str, threshold: float = 0.5) -> None:
         >>> # - is_medical
     """
     if category not in KEYWORD_CATEGORIES:
-        raise ValueError(f"不正なカテゴリ: {category}. 有効値: {list(KEYWORD_CATEGORIES.keys())}")
-    
+        raise ValueError(
+            f"不正なカテゴリ: {category}. 有効値: {list(KEYWORD_CATEGORIES.keys())}"
+        )
+
     # 1. キーワード出現回数
-    df[f"{category}_word_count"] = df["transcript"].apply(
+    df[f"{category}_word_count"] = df["subtitles"].apply(
         lambda t: count_keywords_in_category(str(t), category)
     )
-    
+
     # 2. 動画時間を分に変換（duration は秒単位と想定）
     if "duration_min" not in df.columns:
         df["duration_min"] = df["duration"] / 60
-    
+
     # 3. 1分あたりのキーワード出現回数
     df[f"{category}_per_min"] = (
         df[f"{category}_word_count"] / df["duration_min"]
     ).round(3)
-    
+
     # 4. threshold 以上なら該当カテゴリとみなす
     df[f"is_{category}"] = df[f"{category}_per_min"] >= threshold
 
@@ -154,21 +156,21 @@ def analyze_by_keywords(df, category: str, threshold: float = 0.5) -> None:
 def add_title_keyword_flags(df, category: str) -> None:
     """
     タイトルに指定カテゴリのキーワードが含まれているかを判定
-    
+
     Args:
         df: title カラムを含む DataFrame（インプレイス修正）
         category: カテゴリ名 ("medical", "legal", "daily_surprising")
-    
+
     追加される列:
         - {category}_in_title: タイトルにキーワードが含まれるなら True
-    
+
     Example:
         >>> add_title_keyword_flags(df, "medical")
         >>> # df['medical_in_title'] が追加される
     """
     if category not in KEYWORD_CATEGORIES:
         raise ValueError(f"不正なカテゴリ: {category}")
-    
-    df[f"{category}_in_title"] = df["title"].fillna("").apply(
-        lambda t: is_category(t, category)
+
+    df[f"{category}_in_title"] = (
+        df["title"].fillna("").apply(lambda t: is_category(t, category))
     )

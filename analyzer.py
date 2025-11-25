@@ -10,7 +10,7 @@ VIDEO_IDS = ["SyibOFcjCHk"]
 
 load_dotenv()
 API_KEY = os.environ["YOUTUBE_API_KEY"]
-SUBTITLE_LANGS = os.getenv("SUBTITLE_LANGS", "ja")   # default to Japanese
+SUBTITLE_LANGS = os.getenv("SUBTITLE_LANGS", "ja")  # default to Japanese
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
 if not API_KEY:
@@ -156,6 +156,7 @@ def get_video_details(video_ids: list[str], api_key) -> pd.DataFrame:
                 ]
             )
 
+    # duration is standardized to 'duration' (seconds) for downstream consistency
     df = pd.DataFrame(
         all_data,
         columns=[
@@ -163,7 +164,7 @@ def get_video_details(video_ids: list[str], api_key) -> pd.DataFrame:
             "title",
             "date",
             "views",
-            "duration(sec)",
+            "duration",
             "likes",
             "comments",
             "URL",
