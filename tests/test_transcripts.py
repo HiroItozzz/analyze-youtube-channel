@@ -6,11 +6,11 @@ import isodate
 import time
 import random
 
-from analyzer import get_all_video_ids, get_playlist_ids, get_video_details
+from youtube_client import get_all_video_ids, get_playlist_ids, get_video_details
 import fetch_transcripts
 
 
-VIDEO_IDS = ["-4cr9HQ0Uu0"]
+VIDEO_IDS = [""]
 
 load_dotenv()
 API_KEY = os.environ["YOUTUBE_API_KEY"]

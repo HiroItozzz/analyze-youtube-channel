@@ -11,6 +11,7 @@ Output in csv format.
 
 ## Requirements
 
+
 - **Python 3.13 or higher**
 - Main dependent libraries:
 - `yt-dlp >= 2025.11.12`
@@ -20,9 +21,16 @@ Output in csv format.
 
 ---
 
+
 ## 🚀 Quick start
 
-Set environment variables in `.env`:
+- Install required libraries
+
+```bash
+pip install -r requirements.txt
+```
+
+- Set environment variables in `.env`:
 
 ```
 YOUTUBE_API_KEY=your_api_key
@@ -32,7 +40,7 @@ TITLE_FILTER=title_keyword_filter
 THRESHOLD=0.5         # Threshold for classification. Unit is specified as the number of keyword appearances per minute
 ```
 
-execution
+- execute
 
 ```bash
 python main.py
@@ -41,6 +49,7 @@ python main.py
 The results are saved in `output/video_analysis_result.csv`.
 
 ---
+
 
 ## 📊 Output format
 
@@ -66,6 +75,7 @@ Main columns of `output/video_analysis_result.csv`:
 
 ---
 
+
 ## 📋 Module configuration
 
 | File                   | Role                                                                              |
@@ -80,6 +90,16 @@ Main columns of `output/video_analysis_result.csv`:
 <img src="sample_images/keywords.png" width="600">
 
 ---
+
+
+## Technical considerations
+
+- Handling YouTube DATA API
+  - It is not possible to obtain statistical information for all videos on a channel at once by calling the YouTube API, but it is necessary to send requests to different resources several times, and there are multiple ways to do this. Among them, this code uses the video ID that is easiest to obtain as input, making it easy to use.
+  - First, use one video ID to get the channel ID (UC-format) from the `videos` resource, and replace it with a string with the playlist ID (UU-format) of all video playlists automatically generated for that channel. Then, get the video IDs of all videos from the `playlistItems` resource. Finally, by sending a request to the `videos` resource again, we get the statistics for all videos on the channel.
+
+---
+
 
 ## 📚 Reference materials
 
