@@ -3,23 +3,30 @@ from dotenv import load_dotenv
 from pathlib import Path
 import pandas as pd
 
-import analyzer, fetch_transcripts
+import youtube_client, fetch_transcripts
 from keywords import analyze_by_keywords, KEYWORD_CATEGORIES
 
-VIDEO_IDS = ["XgTFPA20MU0"]  # 分析したいチャンネルの動画 (list)
-TITLE_FILTER = "世界仰天ニュース"  # フィルタリング用タイトルキーワード
 
+### .env で初期設定を行い、main.pyで実行 ###
+
+
+### 環境変数読み込み ###
 load_dotenv()
-API_KEY = os.environ["YOUTUBE_API_KEY"]
-SUBTITLE_LANGS = os.getenv("SUBTITLE_LANGS", "ja")  # default to Japanese
-DEBUG = os.getenv("DEBUG", "False") == "True"
+API_KEY = os.environ["YOUTUBE_API_KEY"].strip()
+TITLE_FILTER = os.getenv("TITLE_FILTER", "").strip()  # Noneでチャンネル全動画
+SUBTITLE_LANGS = os.getenv("SUBTITLE_LANGS", "ja").strip()
 
-# 出力ディレクトリ設定
-OUTPUT_DIR = Path("output")
+VIDEO_IDS = os.getenv("VIDEO_IDS")
+VIDEO_IDS = [v.strip() for v in VIDEO_IDS.split(",")] if VIDEO_IDS else None
+
+OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "output").strip())
 OUTPUT_DIR.mkdir(exist_ok=True)
 
+DEBUG = os.getenv("DEBUG", "False").strip().lower() == "true"
+########################
 
-def analyze_keywords(df: pd.DataFrame) -> pd.DataFrame:
+
+def analyze_subtitles(df: pd.DataFrame) -> pd.DataFrame:
     """キーワード分析を実行し、DataFrame をReturn"""
 
     # 1. 全カテゴリで分析
@@ -85,13 +92,19 @@ def analyze_and_save(df: pd.DataFrame, output_path: Path):
 
 
 if __name__ == "__main__":
+    if not VIDEO_IDS:
+        print(
+            "ERROR: VIDEO_IDS が設定されていません。 .env ファイルを確認してください。"
+        )
+        exit(1)
+
     print("=" * 60)
     print("YouTubeチャンネル分析パイプライン")
     print("=" * 60)
 
     # Step 1: プレイリストID取得
     print("\n[1] プレイリストID取得中...")
-    playlist_data = analyzer.get_playlist_ids(VIDEO_IDS, API_KEY)
+    playlist_data = youtube_client.get_playlist_ids(VIDEO_IDS, API_KEY)
     if DEBUG:
         print("Playlist Data:")
         print(playlist_data)
@@ -99,7 +112,7 @@ if __name__ == "__main__":
     # Step 2: 全動画ID取得
     print("[2] 全動画ID取得中...")
     playlist_ids = playlist_data["playlist_id"].tolist()
-    filtered_videos_data = analyzer.get_all_video_ids(
+    filtered_videos_data = youtube_client.get_all_video_ids(
         playlist_ids, API_KEY, title_filter=TITLE_FILTER
     )
     if DEBUG:
@@ -113,7 +126,7 @@ if __name__ == "__main__":
     # Step 3: 動画詳細情報取得
     print("[3] 動画詳細情報取得中...")
     all_video_ids = filtered_videos_data["video_id"].tolist()
-    df_video_details = analyzer.get_video_details(all_video_ids, API_KEY)
+    df_video_details = youtube_client.get_video_details(all_video_ids, API_KEY)
     if DEBUG:
         print("Video Details:")
         print(df_video_details)
@@ -137,7 +150,7 @@ if __name__ == "__main__":
 
     # Step 7: キーワード分析 & CSV出力
     print("[6] キーワード分析中...")
-    result_analyzed = analyze_keywords(result)
+    result_analyzed = analyze_subtitles(result)
 
     # Step 8: CSV に保存
     print("[7] 結果を保存中...")
