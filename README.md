@@ -1,148 +1,85 @@
-# Transcript Analyzer
+## Transcript Analyzer
 
-YouTube 動画の字幕を取得し、キーワード分析（医療・法律・日常の意外）を行うツール。
+A small toolkit to download YouTube subtitles and perform keyword-based analysis focused on three categories: medical, legal/crime, and surprising daily events. It was originally developed for the Japanese TV program "Sekai Gyoten News" (世界仰天ニュース), but works for any channel.
 
-**想定チャンネル:** 日テレ公式チャンネル（世界仰天ニュース）
+### Quick start
 
----
+Run the main script:
 
-## 🚀 クイックスタート
-
-```bash
+```pwsh
 python main.py
 ```
 
-結果は `output/video_analysis_result.csv` に保存されます。
+Output CSV will be written to the `output/` directory (e.g. `output/video_analysis_result.csv`).
 
----
+### Project layout
 
-## 📋 モジュール構成
+- `main.py` - Main pipeline (API -> subtitles -> analysis -> save)
+- `analyzer.py` - YouTube Data API helper functions
+- `fetch_transcripts.py`- Download and extract subtitles via `yt-dlp`
+- `keywords.py` - Keyword lists and analysis utilities
 
-| ファイル               | 役割                                            |
-| ---------------------- | ----------------------------------------------- |
-| `main.py`              | メイン処理（API 取得 → 字幕取得 → 分析 → 保存） |
-| `analyzer.py`          | YouTube Data API 呼び出し                       |
-| `fetch_transcripts.py` | yt-dlp で字幕ダウンロード                       |
-| `keywords.py`          | キーワード定義・分析関数                        |
+### Keywords module (usage)
 
----
-
-## 🔤 Keywords モジュール
-
-### インポート方法
+You can import helper functions directly:
 
 ```python
-# 関数をインポート（最も簡単）
 from keywords import analyze_by_keywords, count_keywords_in_category, is_category
-
-# キーワード辞書をインポート
-from keywords import KEYWORD_CATEGORIES, medical_keywords, legal_keywords, daily_surprising_keywords
+from keywords import KEYWORD_CATEGORIES
 ```
 
-### よく使う関数
+- `is_category(text, category)` -> boolean: whether any keyword in `category` appears in `text`.
+- `count_keywords_in_category(text, category)` -> int: raw count of keyword occurrences.
+- `analyze_by_keywords(df, category, threshold=0.5)` -> modifies DataFrame in-place and adds columns:
+  - `{category}_word_count`
+  - `duration_min` (if missing)
+  - `{category}_per_min` (keywords per minute, rounded)
+  - `is_{category}` (True if `per_min >= threshold`)
 
-**1. `is_category(text, category)` → True/False**
+Available categories: `medical`, `legal`, `daily_surprising`.
 
-```python
-if is_category("医師が重症を診断した", "medical"):
-    print("医療関連")
+### Title keyword flags
+
+`add_title_keyword_flags(df, category)` will add `{category}_in_title` (boolean) indicating whether any keyword appears in the video title.
+
+### Output columns (example)
+
+The CSV contains the original metadata plus analysis columns, for example:
+
+```
+video_id,title,transcript,duration,medical_word_count,medical_per_min,is_medical,medical_in_title,...,primary_category
 ```
 
-**2. `count_keywords_in_category(text, category)` → 出現回数**
+### Configuration
 
-```python
-count = count_keywords_in_category("病気で入院して治療を受けた", "medical")
-# → 3
-```
-
-**3. `analyze_by_keywords(df, category, threshold=0.5)` → DataFrame 修正（インプレイス）**
-
-```python
-# DataFrame に以下の列を追加:
-# - {category}_word_count
-# - {category}_per_min (1分あたりのキーワード出現数)
-# - is_{category} (threshold 以上なら True)
-analyze_by_keywords(df, "medical", threshold=0.5)
-```
-
-### 使えるカテゴリ
-
-- `"medical"` → 医療関連
-- `"legal"` → 法律・犯罪
-- `"daily_surprising"` → 日常の意外な出来事
-
----
-
-## 📊 出力形式
-
-`output/video_analysis_result.csv` の主要列：
-
-| 列名                       | 説明                         |
-| -------------------------- | ---------------------------- |
-| `video_id`                 | 動画 ID                      |
-| `title`                    | 動画タイトル                 |
-| `transcript`               | 字幕テキスト                 |
-| `medical_word_count`       | 医療キーワード出現回数       |
-| `medical_per_min`          | 医療キーワード（1 分あたり） |
-| `is_medical`               | 医療関連判定                 |
-| `legal_word_count`         | 法律キーワード出現回数       |
-| `legal_per_min`            | 法律キーワード（1 分あたり） |
-| `is_legal`                 | 法律関連判定                 |
-| `daily_surprising_per_min` | 日常の意外（1 分あたり）     |
-| `is_daily_surprising`      | 日常の意外判定               |
-| `primary_category`         | 最も関連度が高いカテゴリ     |
-
----
-
-## 🔧 カスタマイズ
-
-### 環境変数
-
-`.env` で設定：
+Set environment variables in a `.env` file:
 
 ```
 YOUTUBE_API_KEY=your_api_key
 DEBUG=False
 ```
 
-### 分析対象チャンネル変更
+To change the videos being analyzed, edit `VIDEO_IDS` in `main.py`.
 
-`main.py` の `VIDEO_IDS` を変更：
+### Examples
 
-```python
-VIDEO_IDS = ["YOUR_CHANNEL_VIDEO_ID"]
-```
-
-### 出力先変更
-
-`main.py` の `OUTPUT_DIR` を変更：
-
-```python
-OUTPUT_DIR = Path("your_output_directory")
-```
-
----
-
-## 📝 使用例
-
-### 基本的な分析
+Single-video analysis example:
 
 ```python
 import pandas as pd
-from keywords import analyze_by_keywords, count_keywords_in_category
+from keywords import analyze_by_keywords
 
 df = pd.DataFrame({
     'video_id': ['vid001'],
-    'transcript': ['医師が重症の病気を診断した'],
-    'duration': [900]  # 秒単位
+    'transcript': ['The doctor diagnosed a serious illness.'],
+    'duration': [900]  # seconds
 })
 
-# 医療分析
-analyze_by_keywords(df, "medical")
-print(df[['video_id', 'medical_per_min', 'is_medical']])
+analyze_by_keywords(df, 'medical')
+print(df[['video_id','medical_per_min','is_medical']])
 ```
 
-### 複数カテゴリ分析
+Multiple-category loop:
 
 ```python
 from keywords import KEYWORD_CATEGORIES, analyze_by_keywords
@@ -151,19 +88,17 @@ for category in KEYWORD_CATEGORIES.keys():
     analyze_by_keywords(df, category=category, threshold=0.5)
 ```
 
----
+### Troubleshooting
 
-## 🐛 トラブルシューティング
+- Empty subtitles: check `tmp_subs/` and ensure `find_downloaded_subfile()` is used correctly.
+- No keywords detected: try lowering the `threshold` (default 0.5 per minute).
+- API errors / rate limits: increase `time.sleep()` in `analyzer.py`.
 
-| 問題                     | 原因                 | 解決策                                                               |
-| ------------------------ | -------------------- | -------------------------------------------------------------------- |
-| 字幕が空                 | ダウンロード失敗     | `tmp_subs/` を確認、`find_downloaded_subfile()` の引数をリストで渡す |
-| キーワードが検出されない | threshold が高すぎる | threshold を下げる（デフォルト 0.5）                                 |
-| API エラー               | レート制限           | `analyzer.py` の `time.sleep()` を増やす                             |
+### Dependencies
 
----
+See `requirements.in` and `requirements.txt`. Main runtime dependencies include `pandas`, `python-dotenv`, `requests`, `isodate`, and `yt-dlp`.
 
-## 📚 参考資料
+### References
 
 - YouTube Data API: https://developers.google.com/youtube/v3
 - yt-dlp: https://github.com/yt-dlp/yt-dlp
